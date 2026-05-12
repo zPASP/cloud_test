@@ -1,0 +1,14 @@
+{
+  "name": "cloud_test",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace @saas/web run dev",
+    "build": "npm --workspace @saas/web run build",
+    "lint": "npm --workspace @saas/web run lint",
+    "test": "npm --workspace @saas/web run test"
+  }
+}
