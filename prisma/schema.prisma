@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  stores    Store[]
+  users     User[]
+}
+
+model Store {
+  id          String    @id @default(cuid())
+  companyId   String
+  name        String
+  subdomain   String    @unique
+  createdAt   DateTime  @default(now())
+  company     Company   @relation(fields: [companyId], references: [id])
+  products    Product[]
+  orders      Order[]
+}
+
+model User {
+  id          String   @id @default(cuid())
+  companyId   String
+  email       String   @unique
+  passwordHash String
+  role        UserRole
+  createdAt   DateTime @default(now())
+  company     Company  @relation(fields: [companyId], references: [id])
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  sku       String   @unique
+  price     Decimal? @db.Decimal(10,2)
+  createdAt DateTime @default(now())
+  store     Store    @relation(fields: [storeId], references: [id])
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  storeId    String
+  customerId String?
+  number     Int
+  status     OrderStatus @default(PENDING_PAYMENT)
+  total      Decimal     @db.Decimal(10,2)
+  createdAt  DateTime    @default(now())
+  store      Store       @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, number])
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  SELLER
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAYMENT_CONFIRMED
+  PICKING_ORIGIN
+  WAITING_CARRIER
+  IN_TRANSIT
+  DELIVERED
+  CANCELED
+}
