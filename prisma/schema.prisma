@@ -1,0 +1,454 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id               String            @id @default(cuid())
+  name             String
+  legalName        String?
+  document         String?
+  status           CompanyStatus     @default(ACTIVE)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  stores           Store[]
+  users            User[]
+  plans            CompanyPlan[]
+  auditLogs        AuditLog[]
+  domainMappings   DomainMapping[]
+}
+
+model Plan {
+  id               String            @id @default(cuid())
+  name             String
+  maxStores        Int               @default(1)
+  maxUsers         Int               @default(3)
+  gmvLimitCents    Int?
+  features         Json
+  createdAt        DateTime          @default(now())
+  companyPlans     CompanyPlan[]
+}
+
+model CompanyPlan {
+  id               String            @id @default(cuid())
+  companyId        String
+  planId           String
+  billingModel     BillingModel
+  startsAt         DateTime
+  endsAt           DateTime?
+  company          Company           @relation(fields: [companyId], references: [id])
+  plan             Plan              @relation(fields: [planId], references: [id])
+}
+
+model Store {
+  id               String            @id @default(cuid())
+  companyId        String
+  name             String
+  slug             String
+  subdomain        String            @unique
+  whatsappNumber   String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  company          Company           @relation(fields: [companyId], references: [id])
+  users            UserStore[]
+  categories       Category[]
+  brands           Brand[]
+  products         Product[]
+  customers        Customer[]
+  orders           Order[]
+  coupons          Coupon[]
+  banners          Banner[]
+  pages            StaticPage[]
+  messageTemplates MessageTemplate[]
+  cookieConsents   CookieConsent[]
+  trackingEvents   TrackingEvent[]
+
+  @@unique([companyId, slug])
+}
+
+model DomainMapping {
+  id               String            @id @default(cuid())
+  companyId        String
+  storeId          String?
+  host             String            @unique
+  verifiedAt       DateTime?
+  company          Company           @relation(fields: [companyId], references: [id])
+}
+
+model User {
+  id               String            @id @default(cuid())
+  companyId        String
+  name             String
+  email            String            @unique
+  phone            String?
+  passwordHash     String
+  role             UserRole
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  company          Company           @relation(fields: [companyId], references: [id])
+  stores           UserStore[]
+  queueAssignments QueueAssignment[]
+  auditLogs        AuditLog[]
+}
+
+model UserStore {
+  userId           String
+  storeId          String
+  createdAt        DateTime          @default(now())
+  user             User              @relation(fields: [userId], references: [id])
+  store            Store             @relation(fields: [storeId], references: [id])
+
+  @@id([userId, storeId])
+}
+
+model Category {
+  id               String            @id @default(cuid())
+  storeId          String
+  parentId         String?
+  name             String
+  slug             String
+  store            Store             @relation(fields: [storeId], references: [id])
+  parent           Category?         @relation("CategoryTree", fields: [parentId], references: [id])
+  children         Category[]        @relation("CategoryTree")
+  products         Product[]
+
+  @@unique([storeId, slug])
+}
+
+model Brand {
+  id               String            @id @default(cuid())
+  storeId          String
+  name             String
+  store            Store             @relation(fields: [storeId], references: [id])
+  products         Product[]
+
+  @@unique([storeId, name])
+}
+
+model Product {
+  id               String            @id @default(cuid())
+  storeId          String
+  categoryId       String?
+  brandId          String?
+  name             String
+  slug             String
+  description      String?
+  priceType        PriceType         @default(VISIBLE)
+  visiblePriceCents Int?
+  approxPriceCents Int?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  store            Store             @relation(fields: [storeId], references: [id])
+  category         Category?         @relation(fields: [categoryId], references: [id])
+  brand            Brand?            @relation(fields: [brandId], references: [id])
+  variants         ProductVariant[]
+  images           ProductImage[]
+  tags             ProductTag[]
+
+  @@unique([storeId, slug])
+}
+
+model ProductVariant {
+  id               String            @id @default(cuid())
+  productId        String
+  sku              String            @unique
+  attributes       Json
+  priceCents       Int?
+  stockStore       Int               @default(0)
+  stockSupplier    Int               @default(0)
+  supplierLeadDays Int?
+  product          Product           @relation(fields: [productId], references: [id])
+  images           ProductImage[]
+}
+
+model ProductImage {
+  id               String            @id @default(cuid())
+  productId        String
+  variantId        String?
+  url              String
+  alt              String?
+  sortOrder        Int               @default(0)
+  product          Product           @relation(fields: [productId], references: [id])
+  variant          ProductVariant?   @relation(fields: [variantId], references: [id])
+}
+
+model ProductTag {
+  id               String            @id @default(cuid())
+  productId        String
+  label            String
+  product          Product           @relation(fields: [productId], references: [id])
+}
+
+model Customer {
+  id               String            @id @default(cuid())
+  storeId          String
+  name             String
+  email            String
+  cpf              String?
+  phone            String?
+  passwordHash     String
+  lgpdDeleteRequestedAt DateTime?
+  createdAt        DateTime          @default(now())
+  store            Store             @relation(fields: [storeId], references: [id])
+  addresses        CustomerAddress[]
+  carts            Cart[]
+  orders           Order[]
+  wishlistItems    WishlistItem[]
+
+  @@unique([storeId, email])
+}
+
+model CustomerAddress {
+  id               String            @id @default(cuid())
+  customerId       String
+  label            String?
+  street           String
+  number           String
+  district         String
+  city             String
+  state            String
+  zipCode          String
+  complement       String?
+  customer         Customer          @relation(fields: [customerId], references: [id])
+}
+
+model Cart {
+  id               String            @id @default(cuid())
+  storeId          String
+  customerId       String?
+  sessionKey       String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  customer         Customer?         @relation(fields: [customerId], references: [id])
+  items            CartItem[]
+}
+
+model CartItem {
+  id               String            @id @default(cuid())
+  cartId           String
+  variantId        String
+  quantity         Int
+  selectedForCheckout Boolean        @default(true)
+  cart             Cart              @relation(fields: [cartId], references: [id])
+}
+
+model Coupon {
+  id               String            @id @default(cuid())
+  storeId          String
+  code             String
+  type             DiscountType
+  value            Int
+  maxDiscountCents Int?
+  active           Boolean           @default(true)
+  expiresAt        DateTime?
+  store            Store             @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, code])
+}
+
+model Order {
+  id               String            @id @default(cuid())
+  storeId          String
+  customerId       String?
+  sellerId         String?
+  number           Int
+  status           String
+  subtotalCents    Int
+  discountCents    Int               @default(0)
+  shippingCents    Int               @default(0)
+  totalCents       Int
+  cancellationRequestedAt DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  store            Store             @relation(fields: [storeId], references: [id])
+  customer         Customer?         @relation(fields: [customerId], references: [id])
+  items            OrderItem[]
+  payments         OrderPayment[]
+  statuses         OrderStatusHistory[]
+  tracking         TrackingEvent[]
+
+  @@unique([storeId, number])
+}
+
+model OrderItem {
+  id               String            @id @default(cuid())
+  orderId          String
+  variantId        String?
+  nameSnapshot     String
+  skuSnapshot      String?
+  quantity         Int
+  unitPriceCents   Int
+  totalPriceCents  Int
+  order            Order             @relation(fields: [orderId], references: [id])
+}
+
+model OrderPayment {
+  id               String            @id @default(cuid())
+  orderId          String
+  method           PaymentMethod
+  amountCents      Int
+  status           PaymentStatus     @default(PENDING)
+  paidAt           DateTime?
+  order            Order             @relation(fields: [orderId], references: [id])
+}
+
+model OrderStatusHistory {
+  id               String            @id @default(cuid())
+  orderId          String
+  status           String
+  message          String?
+  createdAt        DateTime          @default(now())
+  order            Order             @relation(fields: [orderId], references: [id])
+}
+
+model QueueAssignment {
+  id               String            @id @default(cuid())
+  orderId          String            @unique
+  sellerId         String
+  assignedAt       DateTime          @default(now())
+  seller           User              @relation(fields: [sellerId], references: [id])
+}
+
+model MessageTemplate {
+  id               String            @id @default(cuid())
+  storeId          String
+  eventKey         String
+  body             String
+  active           Boolean           @default(true)
+  store            Store             @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, eventKey])
+}
+
+model MessageLog {
+  id               String            @id @default(cuid())
+  storeId          String
+  orderId          String?
+  recipient        String
+  eventKey         String
+  payload          Json
+  status           MessageStatus     @default(PENDING)
+  attempts         Int               @default(0)
+  sentAt           DateTime?
+}
+
+model Banner {
+  id               String            @id @default(cuid())
+  storeId          String
+  title            String
+  imageUrl         String
+  linkUrl          String?
+  startsAt         DateTime?
+  endsAt           DateTime?
+  store            Store             @relation(fields: [storeId], references: [id])
+}
+
+model StaticPage {
+  id               String            @id @default(cuid())
+  storeId          String
+  slug             String
+  title            String
+  content          String
+  store            Store             @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, slug])
+}
+
+model CookieConsent {
+  id               String            @id @default(cuid())
+  storeId          String
+  customerId       String?
+  preferences      Json
+  createdAt        DateTime          @default(now())
+  store            Store             @relation(fields: [storeId], references: [id])
+}
+
+model WishlistItem {
+  id               String            @id @default(cuid())
+  customerId       String
+  productId        String
+  createdAt        DateTime          @default(now())
+  customer         Customer          @relation(fields: [customerId], references: [id])
+
+  @@unique([customerId, productId])
+}
+
+model TrackingEvent {
+  id               String            @id @default(cuid())
+  storeId          String
+  orderId          String?
+  status           String
+  trackingCode     String?
+  trackingUrl      String?
+  createdAt        DateTime          @default(now())
+  store            Store             @relation(fields: [storeId], references: [id])
+  order            Order?            @relation(fields: [orderId], references: [id])
+}
+
+model AuditLog {
+  id               String            @id @default(cuid())
+  companyId        String
+  userId           String?
+  action           String
+  entity           String
+  entityId         String
+  payload          Json?
+  createdAt        DateTime          @default(now())
+  company          Company           @relation(fields: [companyId], references: [id])
+  user             User?             @relation(fields: [userId], references: [id])
+}
+
+enum UserRole {
+  SUPERADMIN
+  ADMIN
+  SELLER
+}
+
+enum CompanyStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+enum BillingModel {
+  FIXED
+  PERCENTAGE
+  HYBRID
+}
+
+enum PriceType {
+  VISIBLE
+  ON_REQUEST
+  APPROXIMATE
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum PaymentMethod {
+  MERCADO_PAGO
+  STRIPE
+  PAGSEGURO
+  ASAAS
+  PIX_MANUAL
+  CASH
+  CARD_MACHINE
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELED
+}
+
+enum MessageStatus {
+  PENDING
+  SENT
+  FAILED
+}
